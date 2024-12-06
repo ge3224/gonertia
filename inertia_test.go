@@ -1,6 +1,7 @@
 package gonertia
 
 import (
+	"html/template"
 	"reflect"
 	"strings"
 	"testing"
@@ -76,6 +77,33 @@ func TestNewFromBytes(t *testing.T) {
 	if i.rootTemplateHTML != rootTemplate {
 		t.Fatalf("root template html=%s, want=%s", i.rootTemplateHTML, rootTemplate)
 	}
+}
+
+func TestNewFromTemplate(t *testing.T) {
+	t.Parallel()
+
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+		tmpl := template.Must(template.New("foo").Parse(`<div id="app"></div>`))
+		i, err := NewFromTemplate(tmpl)
+		if err != nil {
+			t.Fatalf("unexpected error: %s", err)
+		}
+		if i.rootTemplate == nil {
+			t.Fatalf("missing root template")
+		}
+	})
+
+	t.Run("nil", func(t *testing.T) {
+		t.Parallel()
+		i, err := NewFromTemplate(nil)
+		if err == nil {
+			t.Fatalf("expected error for passing a nil template")
+		}
+		if i != nil {
+			t.Fatalf("expected Inertia instance to be nil, but got %v", i)
+		}
+	})
 }
 
 func TestInertia_ShareProp(t *testing.T) {
