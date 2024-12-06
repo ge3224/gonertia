@@ -12,12 +12,12 @@ import (
 
 // Inertia is a main Gonertia structure, which contains all the logic for being an Inertia adapter.
 type Inertia struct {
-	rootTemplate     *template.Template
-	rootTemplateHTML string
+	rootTemplate *template.Template
+	// rootTemplateHTML string
 
-	sharedProps         Props
-	sharedTemplateData  TemplateData
-	sharedTemplateFuncs TemplateFuncs
+	sharedProps        Props
+	sharedTemplateData TemplateData
+	// sharedTemplateFuncs TemplateFuncs
 
 	flash FlashProvider
 
@@ -37,20 +37,16 @@ func New(rootTemplateHTML string, opts ...Option) (*Inertia, error) {
 		return nil, fmt.Errorf("blank root template")
 	}
 
-	i := &Inertia{
-		rootTemplateHTML:    rootTemplateHTML,
-		jsonMarshaller:      jsonDefaultMarshaller{},
-		containerID:         "app",
-		logger:              log.New(io.Discard, "", 0),
-		sharedProps:         make(Props),
-		sharedTemplateData:  make(TemplateData),
-		sharedTemplateFuncs: make(TemplateFuncs),
+	tmpl, err := template.New("root").
+		Funcs(template.FuncMap(make(TemplateFuncs))).
+		Parse(rootTemplateHTML)
+	if err != nil {
+		return nil, fmt.Errorf("build root template: %w", err)
 	}
 
-	for _, opt := range opts {
-		if err := opt(i); err != nil {
-			return nil, fmt.Errorf("initialize inertia: %w", err)
-		}
+	i, err := NewFromTemplate(tmpl, opts...)
+	if err != nil {
+		return nil, err
 	}
 
 	return i, nil
@@ -91,13 +87,13 @@ func NewFromTemplate(rootTemplate *template.Template, opts ...Option) (*Inertia,
 	}
 
 	i := &Inertia{
-		rootTemplate:        rootTemplate,
-		jsonMarshaller:      jsonDefaultMarshaller{},
-		containerID:         "app",
-		logger:              log.New(io.Discard, "", 0),
-		sharedProps:         make(Props),
-		sharedTemplateData:  make(TemplateData),
-		sharedTemplateFuncs: make(TemplateFuncs),
+		rootTemplate:       rootTemplate,
+		jsonMarshaller:     jsonDefaultMarshaller{},
+		containerID:        "app",
+		logger:             log.New(io.Discard, "", 0),
+		sharedProps:        make(Props),
+		sharedTemplateData: make(TemplateData),
+		// sharedTemplateFuncs: make(TemplateFuncs),
 	}
 
 	for _, opt := range opts {
@@ -144,7 +140,19 @@ func (i *Inertia) ShareTemplateData(key string, val any) {
 	i.sharedTemplateData[key] = val
 }
 
-// ShareTemplateFunc adds passed value to the shared template func map.
-func (i *Inertia) ShareTemplateFunc(key string, val any) {
-	i.sharedTemplateFuncs[key] = val
-}
+// // ShareTemplateFunc adds passed value to the shared template func map.
+// func (i *Inertia) ShareTemplateFunc(key string, val any) error {
+// 	i.sharedTemplateFuncs[key] = val
+//
+// 	if i.rootTemplateHTML == "" {
+// 		return fmt.Errorf("no root template string defined")
+// 	}
+//
+// 	t, err := buildRootTemplate(i.rootTemplateHTML, i.sharedTemplateFuncs)
+// 	if err != nil {
+// 		return fmt.Errorf("rebuild root template: %w", err)
+// 	}
+//
+// 	i.rootTemplate = t
+// 	return nil
+// }
