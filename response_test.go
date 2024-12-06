@@ -38,7 +38,6 @@ func TestInertia_Render(t *testing.T) {
 			tmpl, err := template.New("root").
 				Funcs(template.FuncMap(make(TemplateFuncs))).
 				Parse(rootTemplate)
-
 			if err != nil {
 				t.Fatalf("parse root template: %v", err)
 			}
@@ -55,6 +54,7 @@ func TestInertia_Render(t *testing.T) {
 			t.Parallel()
 
 			newTestServerSSR := func(t *testing.T) *httptest.Server {
+				t.Helper()
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					reqContentType := r.Header.Get("Content-Type")
 					wantContentType := "application/json"
@@ -93,6 +93,7 @@ func TestInertia_Render(t *testing.T) {
 			}
 
 			successRunner := func(t *testing.T, i *Inertia) {
+				t.Helper()
 				w, r := requestMock(http.MethodGet, "/home")
 
 				err := i.Render(w, r, "Some/Component", Props{"foo": "bar"})
@@ -118,6 +119,7 @@ func TestInertia_Render(t *testing.T) {
 			}
 
 			errorRunner := func(t *testing.T, i *Inertia) {
+				t.Helper()
 				w, r := requestMock(http.MethodGet, "/home")
 
 				err := i.Render(w, r, "Some/Component", Props{"foo": "bar"})
@@ -161,7 +163,6 @@ func TestInertia_Render(t *testing.T) {
 				tmpl, err := template.New("root").
 					Funcs(template.FuncMap(make(TemplateFuncs))).
 					Parse(rootTemplate)
-
 				if err != nil {
 					t.Fatalf("parse root template: %v", err)
 				}
@@ -205,7 +206,6 @@ func TestInertia_Render(t *testing.T) {
 				tmpl, err := template.New("root").
 					Funcs(template.FuncMap(make(TemplateFuncs))).
 					Parse(rootTemplate)
-
 				if err != nil {
 					t.Fatalf("parse root template: %v", err)
 				}
@@ -225,6 +225,7 @@ func TestInertia_Render(t *testing.T) {
 			t.Parallel()
 
 			runner := func(t *testing.T, i *Inertia) {
+				t.Helper()
 				w, r := requestMock(http.MethodGet, "/")
 
 				err := i.Render(w, r, "Some/Component")
@@ -258,7 +259,6 @@ func TestInertia_Render(t *testing.T) {
 				tmpl, err := template.New("root").
 					Funcs(template.FuncMap(tFuncs)).
 					Parse(`{{ trim " foo bar " }}`)
-
 				if err != nil {
 					t.Fatalf("parse root template: %v", err)
 				}
@@ -275,6 +275,7 @@ func TestInertia_Render(t *testing.T) {
 			t.Parallel()
 
 			runner := func(t *testing.T, i *Inertia) {
+				t.Helper()
 				w, r := requestMock(http.MethodGet, "/")
 
 				err := i.Render(w, r, "Some/Component")
@@ -305,7 +306,6 @@ func TestInertia_Render(t *testing.T) {
 				tmpl, err := template.New("root").
 					Funcs(template.FuncMap(make(TemplateFuncs))).
 					Parse(`Hello, {{ .text }}!`)
-
 				if err != nil {
 					t.Fatalf("parse root template: %v", err)
 				}
