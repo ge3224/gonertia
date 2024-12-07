@@ -91,13 +91,12 @@ func NewFromTemplate(rootTemplate *template.Template, opts ...Option) (*Inertia,
 	}
 
 	i := &Inertia{
-		rootTemplate:        rootTemplate,
-		jsonMarshaller:      jsonDefaultMarshaller{},
-		containerID:         "app",
-		logger:              log.New(io.Discard, "", 0),
-		sharedProps:         make(Props),
-		sharedTemplateData:  make(TemplateData),
-		sharedTemplateFuncs: make(TemplateFuncs),
+		rootTemplate:       rootTemplate,
+		jsonMarshaller:     jsonDefaultMarshaller{},
+		containerID:        "app",
+		logger:             log.New(io.Discard, "", 0),
+		sharedProps:        make(Props),
+		sharedTemplateData: make(TemplateData),
 	}
 
 	for _, opt := range opts {
