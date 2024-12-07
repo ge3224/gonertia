@@ -21,18 +21,18 @@ func TestInertia_Render(t *testing.T) {
 	t.Run("plain request", func(t *testing.T) {
 		t.Parallel()
 
-		// t.Run("success", func(t *testing.T) {
-		// 	t.Parallel()
-		//
-		// 	i := I(func(i *Inertia) {
-		// 		i.rootTemplateHTML = rootTemplate
-		// 		i.version = "f8v01xv4h4"
-		// 	})
-		//
-		// 	assertRootTemplateSuccess(t, i)
-		// })
-
 		t.Run("success", func(t *testing.T) {
+			t.Parallel()
+
+			i := I(func(i *Inertia) {
+				i.rootTemplateHTML = rootTemplate
+				i.version = "f8v01xv4h4"
+			})
+
+			assertRootTemplateSuccess(t, i)
+		})
+
+		t.Run("success with pre-parsed template", func(t *testing.T) {
 			t.Parallel()
 
 			tmpl, err := template.New("root").
@@ -136,24 +136,24 @@ func TestInertia_Render(t *testing.T) {
 				assertable.AssertURL("/home")
 			}
 
-			// t.Run("success", func(t *testing.T) {
-			// 	t.Parallel()
-			//
-			// 	ts := newTestServerSSR(t)
-			//
-			// 	defer ts.Close()
-			//
-			// 	i := I(func(i *Inertia) {
-			// 		i.rootTemplateHTML = rootTemplate
-			// 		i.version = "f8v01xv4h4"
-			// 		i.ssrURL = ts.URL
-			// 		i.ssrHTTPClient = ts.Client()
-			// 	})
-			//
-			// 	successRunner(t, i)
-			// })
-
 			t.Run("success", func(t *testing.T) {
+				t.Parallel()
+
+				ts := newTestServerSSR(t)
+
+				defer ts.Close()
+
+				i := I(func(i *Inertia) {
+					i.rootTemplateHTML = rootTemplate
+					i.version = "f8v01xv4h4"
+					i.ssrURL = ts.URL
+					i.ssrHTTPClient = ts.Client()
+				})
+
+				successRunner(t, i)
+			})
+
+			t.Run("success with pre-parsed root template", func(t *testing.T) {
 				t.Parallel()
 
 				ts := newTestServerSSR(t)
@@ -177,25 +177,25 @@ func TestInertia_Render(t *testing.T) {
 				successRunner(t, i)
 			})
 
-			// t.Run("error with fallback", func(t *testing.T) {
-			// 	t.Parallel()
-			//
-			// 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// 		w.WriteHeader(http.StatusInternalServerError)
-			// 	}))
-			// 	defer ts.Close()
-			//
-			// 	i := I(func(i *Inertia) {
-			// 		i.rootTemplateHTML = rootTemplate
-			// 		i.version = "f8v01xv4h4"
-			// 		i.ssrURL = ts.URL
-			// 		i.ssrHTTPClient = ts.Client()
-			// 	})
-			//
-			// 	errorRunner(t, i)
-			// })
-
 			t.Run("error with fallback", func(t *testing.T) {
+				t.Parallel()
+
+				ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusInternalServerError)
+				}))
+				defer ts.Close()
+
+				i := I(func(i *Inertia) {
+					i.rootTemplateHTML = rootTemplate
+					i.version = "f8v01xv4h4"
+					i.ssrURL = ts.URL
+					i.ssrHTTPClient = ts.Client()
+				})
+
+				errorRunner(t, i)
+			})
+
+			t.Run("error with fallback and pre-parsed root template", func(t *testing.T) {
 				t.Parallel()
 
 				ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -241,18 +241,18 @@ func TestInertia_Render(t *testing.T) {
 				}
 			}
 
-			// t.Run("success", func(t *testing.T) {
-			// 	i := I(func(i *Inertia) {
-			// 		i.rootTemplateHTML = `{{ trim " foo bar " }}`
-			// 		i.sharedTemplateFuncs = TemplateFuncs{
-			// 			"trim": strings.TrimSpace,
-			// 		}
-			// 	})
-			//
-			// 	runner(t, i)
-			// })
-
 			t.Run("success", func(t *testing.T) {
+				i := I(func(i *Inertia) {
+					i.rootTemplateHTML = `{{ trim " foo bar " }}`
+					i.sharedTemplateFuncs = TemplateFuncs{
+						"trim": strings.TrimSpace,
+					}
+				})
+
+				runner(t, i)
+			})
+
+			t.Run("success with pre-parsed root template", func(t *testing.T) {
 				tFuncs := make(TemplateFuncs)
 				tFuncs["trim"] = strings.TrimSpace
 
@@ -291,18 +291,18 @@ func TestInertia_Render(t *testing.T) {
 				}
 			}
 
-			// t.Run("success", func(t *testing.T) {
-			// 	i := I(func(i *Inertia) {
-			// 		i.rootTemplateHTML = `Hello, {{ .text }}!`
-			// 		i.sharedTemplateData = TemplateData{
-			// 			"text": "world",
-			// 		}
-			// 	})
-			//
-			// 	runner(t, i)
-			// })
-
 			t.Run("success", func(t *testing.T) {
+				i := I(func(i *Inertia) {
+					i.rootTemplateHTML = `Hello, {{ .text }}!`
+					i.sharedTemplateData = TemplateData{
+						"text": "world",
+					}
+				})
+
+				runner(t, i)
+			})
+
+			t.Run("success with pre-parsed root template", func(t *testing.T) {
 				tmpl, err := template.New("root").
 					Funcs(template.FuncMap(make(TemplateFuncs))).
 					Parse(`Hello, {{ .text }}!`)

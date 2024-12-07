@@ -445,6 +445,14 @@ func (i *Inertia) doInertiaResponse(w http.ResponseWriter, page *page) error {
 }
 
 func (i *Inertia) doHTMLResponse(w http.ResponseWriter, r *http.Request, page *page) (err error) {
+	// If root template is already created - we'll use it to save some time.
+	if i.rootTemplate == nil {
+		i.rootTemplate, err = i.buildRootTemplate()
+		if err != nil {
+			return fmt.Errorf("build root template: %w", err)
+		}
+	}
+
 	templateData, err := i.buildTemplateData(r, page)
 	if err != nil {
 		return fmt.Errorf("build template data: %w", err)
@@ -457,6 +465,11 @@ func (i *Inertia) doHTMLResponse(w http.ResponseWriter, r *http.Request, page *p
 	}
 
 	return nil
+}
+
+func (i *Inertia) buildRootTemplate() (*template.Template, error) {
+	tmpl := template.New("").Funcs(template.FuncMap(i.sharedTemplateFuncs))
+	return tmpl.Parse(i.rootTemplateHTML)
 }
 
 func (i *Inertia) buildTemplateData(r *http.Request, page *page) (TemplateData, error) {

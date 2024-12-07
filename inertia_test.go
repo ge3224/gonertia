@@ -23,7 +23,9 @@ func TestNew(t *testing.T) {
 			t.Fatalf("unexpected error: %s", err)
 		}
 
-		assertRootTemplate(t, i.rootTemplate)
+		if i.rootTemplateHTML != rootTemplate {
+			t.Fatalf("root template html=%s, want=%s", i.rootTemplateHTML, rootTemplate)
+		}
 	})
 
 	t.Run("blank", func(t *testing.T) {
@@ -46,7 +48,9 @@ func TestNewFromFile(t *testing.T) {
 		t.Fatalf("unexpected error: %s", err)
 	}
 
-	assertRootTemplate(t, i.rootTemplate)
+	if i.rootTemplateHTML != rootTemplate {
+		t.Fatalf("root template html=%s, want=%s", i.rootTemplateHTML, rootTemplate)
+	}
 }
 
 func TestNewFromReader(t *testing.T) {
@@ -57,7 +61,9 @@ func TestNewFromReader(t *testing.T) {
 		t.Fatalf("unexpected error: %s", err)
 	}
 
-	assertRootTemplate(t, i.rootTemplate)
+	if i.rootTemplateHTML != rootTemplate {
+		t.Fatalf("root template html=%s, want=%s", i.rootTemplateHTML, rootTemplate)
+	}
 }
 
 func TestNewFromBytes(t *testing.T) {
@@ -68,7 +74,9 @@ func TestNewFromBytes(t *testing.T) {
 		t.Fatalf("unexpected error: %s", err)
 	}
 
-	assertRootTemplate(t, i.rootTemplate)
+	if i.rootTemplateHTML != rootTemplate {
+		t.Fatalf("root template html=%s, want=%s", i.rootTemplateHTML, rootTemplate)
+	}
 }
 
 func TestNewFromTemplate(t *testing.T) {
@@ -292,67 +300,69 @@ func TestInertia_ShareTemplateData(t *testing.T) {
 	}
 }
 
-// func TestInertia_ShareTemplateFunc(t *testing.T) {
-// 	t.Parallel()
-//
-// 	type args struct {
-// 		key string
-// 		val any
-// 	}
-// 	tests := []struct {
-// 		name          string
-// 		templateFuncs TemplateFuncs
-// 		args          args
-// 		want          TemplateFuncs
-// 	}{
-// 		{
-// 			"add",
-// 			TemplateFuncs{},
-// 			args{
-// 				key: "foo",
-// 				val: "bar",
-// 			},
-// 			TemplateFuncs{"foo": "bar"},
-// 		},
-// 		{
-// 			"replace",
-// 			TemplateFuncs{"foo": "zoo"},
-// 			args{
-// 				key: "foo",
-// 				val: "bar",
-// 			},
-// 			TemplateFuncs{"foo": "bar"},
-// 		},
-// 	}
-//
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			t.Parallel()
-//
-// 			i := I(func(i *Inertia) {
-// 				i.sharedTemplateFuncs = tt.templateFuncs
-// 			})
-//
-// 			 i.ShareTemplateFunc(tt.args.key, tt.args.val)
-//
-// 			if !reflect.DeepEqual(i.sharedTemplateFuncs, tt.want) {
-// 				t.Fatalf("sharedTemplateFuncs=%#v, want=%#v", i.sharedTemplateFuncs, tt.want)
-// 			}
-// 		})
-// 	}
-// }
+func TestInertia_ShareTemplateFunc(t *testing.T) {
+	t.Parallel()
 
-func assertRootTemplate(t *testing.T, root *template.Template) {
-	t.Helper()
-
-	control, err := template.New("root").
-		Funcs(template.FuncMap(make(TemplateFuncs))).
-		Parse(rootTemplate)
-	if err != nil {
-		t.Fatalf("parse root template: %v", err)
+	type args struct {
+		key string
+		val any
+	}
+	tests := []struct {
+		name          string
+		templateFuncs TemplateFuncs
+		args          args
+		want          TemplateFuncs
+	}{
+		{
+			"add",
+			TemplateFuncs{},
+			args{
+				key: "foo",
+				val: "bar",
+			},
+			TemplateFuncs{"foo": "bar"},
+		},
+		{
+			"replace",
+			TemplateFuncs{"foo": "zoo"},
+			args{
+				key: "foo",
+				val: "bar",
+			},
+			TemplateFuncs{"foo": "bar"},
+		},
 	}
 
-	if strings.TrimSpace(root.Tree.Root.String()) != strings.TrimSpace(control.Tree.Root.String()) {
-		t.Fatalf("rootTemplate=%#v, want=%#v", root, control)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			i := I(func(i *Inertia) {
+				i.rootTemplateHTML = rootTemplate
+				i.sharedTemplateFuncs = tt.templateFuncs
+			})
+
+			err := i.ShareTemplateFunc(tt.args.key, tt.args.val)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if !reflect.DeepEqual(i.sharedTemplateFuncs, tt.want) {
+				t.Fatalf("sharedTemplateFuncs=%#v, want=%#v", i.sharedTemplateFuncs, tt.want)
+			}
+		})
 	}
+
+	t.Run("empty root template html string", func(t *testing.T) {
+		t.Parallel()
+		i := I(func(i *Inertia) {
+			i.rootTemplateHTML = ""
+			i.sharedTemplateFuncs = TemplateFuncs{"foo": "bar"}
+		})
+
+		err := i.ShareTemplateFunc("foo", "baz")
+		if err == nil {
+			t.Fatalf("expected error for missing root template html string")
+		}
+	})
 }
