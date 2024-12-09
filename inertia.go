@@ -84,6 +84,30 @@ func NewFromBytes(rootTemplateBs []byte, opts ...Option) (*Inertia, error) {
 	return New(string(rootTemplateBs), opts...)
 }
 
+// NewFromTemplate receives a *template.Template and then initializes Inertia.
+func NewFromTemplate(rootTemplate *template.Template, opts ...Option) (*Inertia, error) {
+	if rootTemplate == nil {
+		return nil, fmt.Errorf("nil root template")
+	}
+
+	i := &Inertia{
+		rootTemplate:       rootTemplate,
+		jsonMarshaller:     jsonDefaultMarshaller{},
+		containerID:        "app",
+		logger:             log.New(io.Discard, "", 0),
+		sharedProps:        make(Props),
+		sharedTemplateData: make(TemplateData),
+	}
+
+	for _, opt := range opts {
+		if err := opt(i); err != nil {
+			return nil, fmt.Errorf("initialize inertia: %w", err)
+		}
+	}
+
+	return i, nil
+}
+
 // Logger defines an interface for debug messages.
 type Logger interface {
 	Printf(format string, v ...any)
@@ -119,7 +143,13 @@ func (i *Inertia) ShareTemplateData(key string, val any) {
 	i.sharedTemplateData[key] = val
 }
 
-// ShareTemplateFunc adds passed value to the shared template func map.
-func (i *Inertia) ShareTemplateFunc(key string, val any) {
+// ShareTemplateFunc adds the passed value to the shared template func map. If
+// no root template HTML string has been defined, it returns an error.
+func (i *Inertia) ShareTemplateFunc(key string, val any) error {
+	if i.rootTemplateHTML == "" {
+		return fmt.Errorf("undefined root template html string")
+	}
+
 	i.sharedTemplateFuncs[key] = val
+	return nil
 }

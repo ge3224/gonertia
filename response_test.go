@@ -32,13 +32,30 @@ func TestInertia_Render(t *testing.T) {
 			assertRootTemplateSuccess(t, i)
 		})
 
+		t.Run("success with pre-parsed template", func(t *testing.T) {
+			t.Parallel()
+
+			tmpl, err := template.New("root").
+				Funcs(template.FuncMap(make(TemplateFuncs))).
+				Parse(rootTemplate)
+			if err != nil {
+				t.Fatalf("parse root template: %v", err)
+			}
+
+			i := I(func(i *Inertia) {
+				i.rootTemplate = tmpl
+				i.version = "f8v01xv4h4"
+			})
+
+			assertRootTemplateSuccess(t, i)
+		})
+
 		t.Run("ssr", func(t *testing.T) {
 			t.Parallel()
 
-			t.Run("success", func(t *testing.T) {
-				t.Parallel()
-
-				ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			newTestServerSSR := func(t *testing.T) *httptest.Server {
+				t.Helper()
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					reqContentType := r.Header.Get("Content-Type")
 					wantContentType := "application/json"
 					if reqContentType != wantContentType {
@@ -73,15 +90,10 @@ func TestInertia_Render(t *testing.T) {
 						t.Fatalf("unexpected error: %s", err)
 					}
 				}))
-				defer ts.Close()
+			}
 
-				i := I(func(i *Inertia) {
-					i.rootTemplateHTML = rootTemplate
-					i.version = "f8v01xv4h4"
-					i.ssrURL = ts.URL
-					i.ssrHTTPClient = ts.Client()
-				})
-
+			successRunner := func(t *testing.T, i *Inertia) {
+				t.Helper()
 				w, r := requestMock(http.MethodGet, "/home")
 
 				err := i.Render(w, r, "Some/Component", Props{"foo": "bar"})
@@ -104,6 +116,65 @@ func TestInertia_Render(t *testing.T) {
 				if got != want {
 					t.Fatalf("got content=%s, want=%s", got, want)
 				}
+			}
+
+			errorRunner := func(t *testing.T, i *Inertia) {
+				t.Helper()
+				w, r := requestMock(http.MethodGet, "/home")
+
+				err := i.Render(w, r, "Some/Component", Props{"foo": "bar"})
+				if err != nil {
+					t.Fatalf("unexpected error: %s", err)
+				}
+
+				var buf bytes.Buffer
+
+				assertable := AssertFromReader(t, io.TeeReader(w.Body, &buf))
+				assertable.AssertComponent("Some/Component")
+				assertable.AssertProps(Props{"foo": "bar", "errors": map[string]any{}})
+				assertable.AssertVersion("f8v01xv4h4")
+				assertable.AssertURL("/home")
+			}
+
+			t.Run("success", func(t *testing.T) {
+				t.Parallel()
+
+				ts := newTestServerSSR(t)
+
+				defer ts.Close()
+
+				i := I(func(i *Inertia) {
+					i.rootTemplateHTML = rootTemplate
+					i.version = "f8v01xv4h4"
+					i.ssrURL = ts.URL
+					i.ssrHTTPClient = ts.Client()
+				})
+
+				successRunner(t, i)
+			})
+
+			t.Run("success with pre-parsed root template", func(t *testing.T) {
+				t.Parallel()
+
+				ts := newTestServerSSR(t)
+
+				defer ts.Close()
+
+				tmpl, err := template.New("root").
+					Funcs(template.FuncMap(make(TemplateFuncs))).
+					Parse(rootTemplate)
+				if err != nil {
+					t.Fatalf("parse root template: %v", err)
+				}
+
+				i := I(func(i *Inertia) {
+					i.rootTemplate = tmpl
+					i.version = "f8v01xv4h4"
+					i.ssrURL = ts.URL
+					i.ssrHTTPClient = ts.Client()
+				})
+
+				successRunner(t, i)
 			})
 
 			t.Run("error with fallback", func(t *testing.T) {
@@ -121,71 +192,133 @@ func TestInertia_Render(t *testing.T) {
 					i.ssrHTTPClient = ts.Client()
 				})
 
-				w, r := requestMock(http.MethodGet, "/home")
+				errorRunner(t, i)
+			})
 
-				err := i.Render(w, r, "Some/Component", Props{"foo": "bar"})
+			t.Run("error with fallback and pre-parsed root template", func(t *testing.T) {
+				t.Parallel()
+
+				ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusInternalServerError)
+				}))
+				defer ts.Close()
+
+				tmpl, err := template.New("root").
+					Funcs(template.FuncMap(make(TemplateFuncs))).
+					Parse(rootTemplate)
 				if err != nil {
-					t.Fatalf("unexpected error: %s", err)
+					t.Fatalf("parse root template: %v", err)
 				}
 
-				var buf bytes.Buffer
+				i := I(func(i *Inertia) {
+					i.rootTemplate = tmpl
+					i.version = "f8v01xv4h4"
+					i.ssrURL = ts.URL
+					i.ssrHTTPClient = ts.Client()
+				})
 
-				assertable := AssertFromReader(t, io.TeeReader(w.Body, &buf))
-				assertable.AssertComponent("Some/Component")
-				assertable.AssertProps(Props{"foo": "bar", "errors": map[string]any{}})
-				assertable.AssertVersion("f8v01xv4h4")
-				assertable.AssertURL("/home")
+				errorRunner(t, i)
 			})
 		})
 
 		t.Run("shared funcs", func(t *testing.T) {
 			t.Parallel()
 
-			w, r := requestMock(http.MethodGet, "/")
+			runner := func(t *testing.T, i *Inertia) {
+				t.Helper()
+				w, r := requestMock(http.MethodGet, "/")
 
-			i := I(func(i *Inertia) {
-				i.rootTemplateHTML = `{{ trim " foo bar " }}`
-				i.sharedTemplateFuncs = TemplateFuncs{
-					"trim": strings.TrimSpace,
+				err := i.Render(w, r, "Some/Component")
+				if err != nil {
+					t.Fatalf("unexpected error: %s", err)
 				}
+
+				got := w.Body.String()
+				want := "foo bar"
+
+				if got != want {
+					t.Fatalf("got=%s, want=%s", got, want)
+				}
+			}
+
+			t.Run("success", func(t *testing.T) {
+				i := I(func(i *Inertia) {
+					i.rootTemplateHTML = `{{ trim " foo bar " }}`
+					i.sharedTemplateFuncs = TemplateFuncs{
+						"trim": strings.TrimSpace,
+					}
+				})
+
+				runner(t, i)
 			})
 
-			err := i.Render(w, r, "Some/Component")
-			if err != nil {
-				t.Fatalf("unexpected error: %s", err)
-			}
+			t.Run("success with pre-parsed root template", func(t *testing.T) {
+				tFuncs := make(TemplateFuncs)
+				tFuncs["trim"] = strings.TrimSpace
 
-			got := w.Body.String()
-			want := "foo bar"
+				tmpl, err := template.New("root").
+					Funcs(template.FuncMap(tFuncs)).
+					Parse(`{{ trim " foo bar " }}`)
+				if err != nil {
+					t.Fatalf("parse root template: %v", err)
+				}
 
-			if got != want {
-				t.Fatalf("got=%s, want=%s", got, want)
-			}
+				i := I(func(i *Inertia) {
+					i.rootTemplate = tmpl
+				})
+
+				runner(t, i)
+			})
 		})
 
 		t.Run("shared template data", func(t *testing.T) {
 			t.Parallel()
 
-			w, r := requestMock(http.MethodGet, "/")
+			runner := func(t *testing.T, i *Inertia) {
+				t.Helper()
+				w, r := requestMock(http.MethodGet, "/")
 
-			i := I(func(i *Inertia) {
-				i.rootTemplateHTML = `Hello, {{ .text }}!`
-				i.sharedTemplateData = TemplateData{
-					"text": "world",
+				err := i.Render(w, r, "Some/Component")
+				if err != nil {
+					t.Fatalf("unexpected error: %s", err)
 				}
+
+				got := w.Body.String()
+				want := "Hello, world!"
+
+				if got != want {
+					t.Fatalf("got=%s, want=%s", got, want)
+				}
+			}
+
+			t.Run("success", func(t *testing.T) {
+				i := I(func(i *Inertia) {
+					i.rootTemplateHTML = `Hello, {{ .text }}!`
+					i.sharedTemplateData = TemplateData{
+						"text": "world",
+					}
+				})
+
+				runner(t, i)
 			})
 
-			err := i.Render(w, r, "Some/Component")
-			if err != nil {
-				t.Fatalf("unexpected error: %s", err)
-			}
+			t.Run("success with pre-parsed root template", func(t *testing.T) {
+				tmpl, err := template.New("root").
+					Funcs(template.FuncMap(make(TemplateFuncs))).
+					Parse(`Hello, {{ .text }}!`)
+				if err != nil {
+					t.Fatalf("parse root template: %v", err)
+				}
 
-			got := w.Body.String()
-			want := "Hello, world!"
+				i := I(func(i *Inertia) {
+					i.rootTemplate = tmpl
+					i.sharedTemplateData = TemplateData{
+						"text": "world",
+					}
+				})
 
-			if got != want {
-				t.Fatalf("got=%s, want=%s", got, want)
-			}
+				runner(t, i)
+			})
 		})
 	})
 
@@ -200,11 +333,10 @@ func TestInertia_Render(t *testing.T) {
 			})
 
 			w, r := requestMock(http.MethodGet, "/home")
+
 			asInertiaRequest(r)
 
-			err := i.Render(w, r, "Some/Component", Props{
-				"foo": "bar",
-			})
+			err := i.Render(w, r, "Some/Component", Props{"foo": "bar"})
 			if err != nil {
 				t.Fatalf("unexpected error: %s", err)
 			}
@@ -216,7 +348,6 @@ func TestInertia_Render(t *testing.T) {
 			assertable.AssertURL("/home")
 			assertable.AssertEncryptHistory(false)
 			assertable.AssertEncryptHistory(false)
-
 			assertInertiaResponse(t, w)
 			assertJSONResponse(t, w)
 			assertResponseStatusCode(t, w, http.StatusOK)
