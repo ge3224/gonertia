@@ -12,12 +12,10 @@ import (
 
 // Inertia is a main Gonertia structure, which contains all the logic for being an Inertia adapter.
 type Inertia struct {
-	rootTemplate     *template.Template
-	rootTemplateHTML string
+	rootTemplate *template.Template
 
-	sharedProps         Props
-	sharedTemplateData  TemplateData
-	sharedTemplateFuncs TemplateFuncs
+	sharedProps        Props
+	sharedTemplateData TemplateData
 
 	flash FlashProvider
 
@@ -31,43 +29,43 @@ type Inertia struct {
 	logger         Logger
 }
 
-// New initializes and returns Inertia.
-func New(rootTemplateHTML string, opts ...Option) (*Inertia, error) {
+// New creates an Inertia instance with a root HTML template.
+//
+// Parameters:
+//   - rootTemplateHTML: The base HTML template containing Inertia placeholders.
+//   - funcMap: Optional template function map for custom template functions.
+//   - opts: Optional configuration options for Inertia initialization.
+func New(rootTemplateHTML string, funcMap *TemplateFuncs, opts ...Option) (*Inertia, error) {
 	if rootTemplateHTML == "" {
 		return nil, fmt.Errorf("blank root template")
 	}
 
-	i := &Inertia{
-		rootTemplateHTML:    rootTemplateHTML,
-		jsonMarshaller:      jsonDefaultMarshaller{},
-		containerID:         "app",
-		logger:              log.New(io.Discard, "", 0),
-		sharedProps:         make(Props),
-		sharedTemplateData:  make(TemplateData),
-		sharedTemplateFuncs: make(TemplateFuncs),
+	tmpl := template.New("root")
+
+	if funcMap != nil {
+		tmpl.Funcs(template.FuncMap(*funcMap))
 	}
 
-	for _, opt := range opts {
-		if err := opt(i); err != nil {
-			return nil, fmt.Errorf("initialize inertia: %w", err)
-		}
+	tmpl, err := tmpl.Parse(rootTemplateHTML)
+	if err != nil {
+		return nil, fmt.Errorf("parse root template: %w", err)
 	}
 
-	return i, nil
+	return NewFromTemplate(tmpl, opts...)
 }
 
 // NewFromFile reads all bytes from the root template file and then initializes Inertia.
-func NewFromFile(rootTemplatePath string, opts ...Option) (*Inertia, error) {
+func NewFromFile(rootTemplatePath string, funcMap *TemplateFuncs, opts ...Option) (*Inertia, error) {
 	bs, err := os.ReadFile(rootTemplatePath)
 	if err != nil {
 		return nil, fmt.Errorf("read file %q: %w", rootTemplatePath, err)
 	}
 
-	return NewFromBytes(bs, opts...)
+	return NewFromBytes(bs, funcMap, opts...)
 }
 
 // NewFromReader reads all bytes from the reader with root template html and then initializes Inertia.
-func NewFromReader(rootTemplateReader io.Reader, opts ...Option) (*Inertia, error) {
+func NewFromReader(rootTemplateReader io.Reader, funcMap *TemplateFuncs, opts ...Option) (*Inertia, error) {
 	bs, err := io.ReadAll(rootTemplateReader)
 	if err != nil {
 		return nil, fmt.Errorf("read root template: %w", err)
@@ -76,12 +74,12 @@ func NewFromReader(rootTemplateReader io.Reader, opts ...Option) (*Inertia, erro
 		_ = closer.Close()
 	}
 
-	return NewFromBytes(bs, opts...)
+	return NewFromBytes(bs, funcMap, opts...)
 }
 
 // NewFromBytes receive bytes with root template html and then initializes Inertia.
-func NewFromBytes(rootTemplateBs []byte, opts ...Option) (*Inertia, error) {
-	return New(string(rootTemplateBs), opts...)
+func NewFromBytes(rootTemplateBs []byte, funcMap *TemplateFuncs, opts ...Option) (*Inertia, error) {
+	return New(string(rootTemplateBs), funcMap, opts...)
 }
 
 // NewFromTemplate receives a *template.Template and then initializes Inertia.
@@ -141,15 +139,4 @@ func (i *Inertia) SharedProp(key string) (any, bool) {
 // ShareTemplateData adds passed data to shared template data.
 func (i *Inertia) ShareTemplateData(key string, val any) {
 	i.sharedTemplateData[key] = val
-}
-
-// ShareTemplateFunc adds the passed value to the shared template func map. If
-// no root template HTML string has been defined, it returns an error.
-func (i *Inertia) ShareTemplateFunc(key string, val any) error {
-	if i.rootTemplateHTML == "" {
-		return fmt.Errorf("undefined root template html string")
-	}
-
-	i.sharedTemplateFuncs[key] = val
-	return nil
 }

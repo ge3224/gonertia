@@ -24,26 +24,13 @@ func TestInertia_Render(t *testing.T) {
 		t.Run("success", func(t *testing.T) {
 			t.Parallel()
 
-			i := I(func(i *Inertia) {
-				i.rootTemplateHTML = rootTemplate
-				i.version = "f8v01xv4h4"
-			})
-
-			assertRootTemplateSuccess(t, i)
-		})
-
-		t.Run("success with pre-parsed template", func(t *testing.T) {
-			t.Parallel()
-
-			tmpl, err := template.New("root").
-				Funcs(template.FuncMap(make(TemplateFuncs))).
-				Parse(rootTemplate)
+			root, err := template.New("root").Parse(rootTemplate)
 			if err != nil {
 				t.Fatalf("parse root template: %v", err)
 			}
 
 			i := I(func(i *Inertia) {
-				i.rootTemplate = tmpl
+				i.rootTemplate = root
 				i.version = "f8v01xv4h4"
 			})
 
@@ -143,8 +130,13 @@ func TestInertia_Render(t *testing.T) {
 
 				defer ts.Close()
 
+				root, err := template.New("root").Parse(rootTemplate)
+				if err != nil {
+					t.Fatalf("parse root template: %v", err)
+				}
+
 				i := I(func(i *Inertia) {
-					i.rootTemplateHTML = rootTemplate
+					i.rootTemplate = root
 					i.version = "f8v01xv4h4"
 					i.ssrURL = ts.URL
 					i.ssrHTTPClient = ts.Client()
@@ -185,8 +177,13 @@ func TestInertia_Render(t *testing.T) {
 				}))
 				defer ts.Close()
 
+				root, err := template.New("root").Parse(rootTemplate)
+				if err != nil {
+					t.Fatalf("parse root template: %v", err)
+				}
+
 				i := I(func(i *Inertia) {
-					i.rootTemplateHTML = rootTemplate
+					i.rootTemplate = root
 					i.version = "f8v01xv4h4"
 					i.ssrURL = ts.URL
 					i.ssrHTTPClient = ts.Client()
@@ -242,17 +239,6 @@ func TestInertia_Render(t *testing.T) {
 			}
 
 			t.Run("success", func(t *testing.T) {
-				i := I(func(i *Inertia) {
-					i.rootTemplateHTML = `{{ trim " foo bar " }}`
-					i.sharedTemplateFuncs = TemplateFuncs{
-						"trim": strings.TrimSpace,
-					}
-				})
-
-				runner(t, i)
-			})
-
-			t.Run("success with pre-parsed root template", func(t *testing.T) {
 				tFuncs := make(TemplateFuncs)
 				tFuncs["trim"] = strings.TrimSpace
 
@@ -291,9 +277,14 @@ func TestInertia_Render(t *testing.T) {
 				}
 			}
 
+			root, err := template.New("root").Parse(`Hello, {{ .text }}!`)
+			if err != nil {
+				t.Fatalf("parse root template: %v", err)
+			}
+
 			t.Run("success", func(t *testing.T) {
 				i := I(func(i *Inertia) {
-					i.rootTemplateHTML = `Hello, {{ .text }}!`
+					i.rootTemplate = root
 					i.sharedTemplateData = TemplateData{
 						"text": "world",
 					}
